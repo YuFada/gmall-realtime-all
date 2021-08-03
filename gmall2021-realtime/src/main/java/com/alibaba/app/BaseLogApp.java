@@ -36,7 +36,7 @@ public class BaseLogApp {
         //Checkpoint必须在一分钟内完成，否则就会被抛弃
         env.getCheckpointConfig().setCheckpointTimeout(60000);
         env.setStateBackend(new FsStateBackend("hdfs://hadoop202:8020/gmall/flink/checkpoint"));
-        System.setProperty("HADOOP_USER_NAME","atguigu");
+        System.setProperty("HADOOP_USER_NAME","alibaba");
 
         //指定消费者配置信息
         String groupId = "ods_dwd_base_log_app";
