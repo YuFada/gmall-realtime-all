@@ -18,6 +18,7 @@ import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
 
@@ -175,10 +176,18 @@ public class BaseLogApp {
         DataStream<String> displayDStream = pageDStream.getSideOutput(displayTag);
 
 //打印测试
-        pageDStream.print("page");
-        startDStream.print("start");
-        displayDStream.print("display");
+//        pageDStream.print("page");
+//        startDStream.print("start");
+//        displayDStream.print("display");
 
+        //TODO 4.将数据输出到kafka不同的主题中
+        FlinkKafkaProducer<String> startSink = MyKafkaUtil.getKafkaSink(TOPIC_START);
+        FlinkKafkaProducer<String> pageSink = MyKafkaUtil.getKafkaSink(TOPIC_PAGE);
+        FlinkKafkaProducer<String> displaySink = MyKafkaUtil.getKafkaSink(TOPIC_DISPLAY);
+
+        startDStream.addSink(startSink);
+        pageDStream.addSink(pageSink);
+        displayDStream.addSink(displaySink);
 
         //执行
         env.execute("dwd_base_log Job");
