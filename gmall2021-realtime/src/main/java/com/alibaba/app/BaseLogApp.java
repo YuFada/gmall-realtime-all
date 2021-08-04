@@ -1,6 +1,7 @@
 package com.alibaba.app;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.utils.MyKafkaUtil;
 import org.apache.flink.api.common.functions.MapFunction;
@@ -10,11 +11,15 @@ import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.streaming.api.CheckpointingMode;
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.flink.util.Collector;
+import org.apache.flink.util.OutputTag;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -24,6 +29,9 @@ import java.util.Date;
  * @version 1.0
  * @date 2021/8/3 19:19
  * @Desc:
+ * 知识点：1.状体存储
+ *       2.测输出流的使用
+ *
  */
 public class BaseLogApp {
     //定义用户行为主题信息
@@ -118,8 +126,61 @@ public class BaseLogApp {
                 return jsonObj;
             }
         });
+
+        //TODO 3.利用侧输出流实现数据拆分
+        //定义启动和曝光数据的侧输出流标签
+        OutputTag<String> startTag = new OutputTag<String>("start") {
+        };
+        OutputTag<String> displayTag = new OutputTag<String>("display") {
+        };
+
+        //日志页面日志、启动日志、曝光日志
+//将不同的日志输出到不同的流中 页面日志输出到主流,启动日志输出到启动侧输出流,曝光日志输出到曝光日志侧输出流
+
+        SingleOutputStreamOperator<String> pageDStream = midWithNewFlagDS
+                .process(new ProcessFunction<JSONObject, String>() {
+                             @Override
+                             public void processElement(JSONObject jsonObj, Context ctx, Collector<String> out) throws Exception {
+                                 //获取数据中的启动相关字段
+                                 JSONObject startJsonObj = jsonObj.getJSONObject("start");
+                                 //将数据转换为字符串，准备向流中输出
+                                 String dataStr = jsonObj.toString();
+                                 if (startJsonObj != null && startJsonObj.size() > 0) {
+                                     ctx.output(startTag, dataStr);
+                                 } else {
+                                     //非启动日志,则为页面日志或者曝光日志(携带页面信息)
+//                                     System.out.println("PageString:" + dataStr);
+                                     //将页面数据输出到主流
+                                     out.collect(dataStr);
+                                     //获取数据中的曝光数据,如果不为空,则将每条曝光数据取出输出到曝光日志侧输出流
+                                     JSONArray displays = jsonObj.getJSONArray("displays");
+                                     if (displays != null && displays.size() > 0) {
+                                         for (int i = 0; i < displays.size(); i++) {
+                                             JSONObject displayJsonObj = displays.getJSONObject(i);
+                                             //获取页面id
+                                             String pageId = jsonObj.getJSONObject("page").getString("page_id");
+                                             //给每条曝光信息添加上pageId
+                                             displayJsonObj.put("page_id", pageId);
+                                             //将曝光数据输出到测输出流
+                                             ctx.output(displayTag, displayJsonObj.toString());
+                                         }
+                                     }
+                                 }
+                             }
+                         }
+                );
+
+        // TODO: 2021/8/4 获取侧输出流
+        DataStream<String> startDStream = pageDStream.getSideOutput(startTag);
+        DataStream<String> displayDStream = pageDStream.getSideOutput(displayTag);
+
+//打印测试
+        pageDStream.print("page");
+        startDStream.print("start");
+        displayDStream.print("display");
+
+
         //执行
         env.execute("dwd_base_log Job");
-        midWithNewFlagDS.print().setParallelism(3);
     }
 }
