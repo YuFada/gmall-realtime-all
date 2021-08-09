@@ -20,9 +20,9 @@ import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
  * 2.维度数据保存到Hbase的表中
  *
  */
+
 public class BaseDBApp {
     public static void main(String[] args) throws Exception {
-
         //TODO 0.基本环境准备
         //Flink流式处理环境
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -59,8 +59,8 @@ public class BaseDBApp {
         filteredDstream.print("json::::::::");
 
         env.execute();
-
-
-
     }
+
+
 }
+

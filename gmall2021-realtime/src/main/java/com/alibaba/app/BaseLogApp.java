@@ -34,6 +34,8 @@ import java.util.Date;
  *       2.测输出流的使用
  *
  */
+
+
 public class BaseLogApp {
     //定义用户行为主题信息
     private static final String TOPIC_START = "dwd_start_log";
@@ -176,9 +178,10 @@ public class BaseLogApp {
         DataStream<String> displayDStream = pageDStream.getSideOutput(displayTag);
 
 //打印测试
-//        pageDStream.print("page");
-//        startDStream.print("start");
-//        displayDStream.print("display");
+      /*  pageDStream.print("page");
+        startDStream.print("start");
+        displayDStream.print("display");
+*/
 
         //TODO 4.将数据输出到kafka不同的主题中
         FlinkKafkaProducer<String> startSink = MyKafkaUtil.getKafkaSink(TOPIC_START);
@@ -188,6 +191,8 @@ public class BaseLogApp {
         startDStream.addSink(startSink);
         pageDStream.addSink(pageSink);
         displayDStream.addSink(displaySink);
+
+
 
         //执行
         env.execute("dwd_base_log Job");

@@ -7,6 +7,9 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 
 import java.util.Properties;
 
+
+
+
 public class MyKafkaUtil {
     private static String kafkaServer = "hadoop202:9092,hadoop203:9092,hadoop204:9092";
 
@@ -22,4 +25,5 @@ public class MyKafkaUtil {
     public static FlinkKafkaProducer<String> getKafkaSink(String topic) {
         return new FlinkKafkaProducer<>(kafkaServer,topic,new SimpleStringSchema());
     }
+
 }
