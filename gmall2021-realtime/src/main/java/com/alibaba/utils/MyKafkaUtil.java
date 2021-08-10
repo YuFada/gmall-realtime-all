@@ -1,13 +1,16 @@
 package com.alibaba.utils;
 
+import com.alibaba.common.GmallConfig;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
+import org.apache.flink.streaming.connectors.kafka.KafkaSerializationSchema;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
 
 import java.util.Properties;
 
-
+import static com.alibaba.common.GmallConfig.DEFAULT_TOPIC;
 
 
 public class MyKafkaUtil {
@@ -26,4 +29,13 @@ public class MyKafkaUtil {
         return new FlinkKafkaProducer<>(kafkaServer,topic,new SimpleStringSchema());
     }
 
+
+    //封装Kafka生产者  动态指定多个不同主题
+    public static <T> FlinkKafkaProducer<T> getKafkaSinkBySchema(KafkaSerializationSchema<T> serializationSchema) {
+        Properties prop =new Properties();
+        prop.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,kafkaServer);
+        //如果15分钟没有更新状态，则超时 默认1分钟
+        prop.setProperty(ProducerConfig.TRANSACTION_TIMEOUT_CONFIG,1000*60*15+"");
+        return new FlinkKafkaProducer<>(DEFAULT_TOPIC, serializationSchema, prop, FlinkKafkaProducer.Semantic.EXACTLY_ONCE);
+    }
 }

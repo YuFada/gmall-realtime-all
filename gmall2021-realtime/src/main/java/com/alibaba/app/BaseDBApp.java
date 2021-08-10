@@ -1,5 +1,6 @@
 package com.alibaba.app;
 
+import com.alibaba.app.func.DimSink;
 import com.alibaba.app.func.TableProcessFunction;
 import com.alibaba.bean.TableProcess;
 import com.alibaba.fastjson.JSON;
@@ -70,6 +71,10 @@ public class BaseDBApp {
         //获取侧输出流，即将通过Phoenix写到Hbase的数据
         DataStream<JSONObject> hbaseDStream = kafkaDStream.getSideOutput(hbaseTag);
 
+
+        //TODO 3.将侧输出流数据写入HBase(Phoenix)
+        hbaseDStream.print("hbase::::");
+        hbaseDStream.addSink(new DimSink());
         env.execute();
     }
 

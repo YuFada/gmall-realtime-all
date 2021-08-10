@@ -6,7 +6,8 @@ package com.alibaba.common;
  * @Description：
  */
 public class GmallConfig {
-    public static final String HBASE_SCHEMA="GMALL2021_REALTIME";
-    public static final String PHOENIX_SERVER="jdbc:phoenix:hadoop202,hadoop203,hadoop204:2181";
+    public static final String HBASE_SCHEMA = "GMALL2021_REALTIME";
+    public static final String PHOENIX_SERVER = "jdbc:phoenix:hadoop202,hadoop203,hadoop204:2181";
+    public static final String DEFAULT_TOPIC = "DEFAULT_DATA";
 }
 
