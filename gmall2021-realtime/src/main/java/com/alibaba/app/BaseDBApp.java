@@ -6,13 +6,19 @@ import com.alibaba.bean.TableProcess;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.utils.MyKafkaUtil;
+import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
+import org.apache.flink.streaming.connectors.kafka.KafkaSerializationSchema;
 import org.apache.flink.util.OutputTag;
+import org.apache.kafka.clients.producer.ProducerRecord;
+
+import javax.annotation.Nullable;
 
 /**
  * @author fada.yu
@@ -75,6 +81,24 @@ public class BaseDBApp {
         //TODO 3.将侧输出流数据写入HBase(Phoenix)
         hbaseDStream.print("hbase::::");
         hbaseDStream.addSink(new DimSink());
+
+        //TODO 4将主流数据写入Kafka
+        FlinkKafkaProducer<JSONObject> kafkaSink = MyKafkaUtil.getKafkaSinkBySchema(new KafkaSerializationSchema<JSONObject>() {
+            @Override
+            public void open(SerializationSchema.InitializationContext context) throws Exception {
+                System.out.println("启动Kafka Sink");
+
+            }
+
+            @Override
+            public ProducerRecord<byte[], byte[]> serialize(JSONObject jsonObject, @Nullable Long aLong) {
+                String topic = jsonObject.getString("sink_table");
+                JSONObject dataJsonObj = jsonObject.getJSONObject("data");
+                return new ProducerRecord(topic, dataJsonObj.toJSONString().getBytes());
+            }
+        });
+        kafkaDStream.print("kafka ::::");
+        kafkaDStream.addSink(kafkaSink);
         env.execute();
     }
 
