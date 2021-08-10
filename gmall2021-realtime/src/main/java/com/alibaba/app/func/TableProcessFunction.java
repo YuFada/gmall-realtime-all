@@ -21,15 +21,16 @@ import java.util.*;
  * @date 2021/8/7 15:40
  * @Description：
  */
-public class TableProcessFuncation extends ProcessFunction<JSONObject, JSONObject> {
+public class TableProcessFunction extends ProcessFunction<JSONObject, JSONObject> {
 
     //因为要将维度数据写到侧输出流，所以定义一个侧输出流标签
     private OutputTag<JSONObject> outputTag;
 
-    public TableProcessFuncation(OutputTag<JSONObject>outputTag){
-        this.outputTag=outputTag;
+    public TableProcessFunction(OutputTag<JSONObject> outputTag) {
+        this.outputTag = outputTag;
 
     }
+
     //用于在内存中存储表配置对象 [表名,表配置信息]
     private Map<String, TableProcess> tableProcessMap = new HashMap<>();
 
@@ -58,42 +59,38 @@ public class TableProcessFuncation extends ProcessFunction<JSONObject, JSONObjec
         }, 5000, 5000);
     }
 
-        //读取MySQL中配置表信息，存入到内存Map中
-        private void initTableProcessMap() {
-            System.out.println("更新配置的处理信息");
-            //查询MySQL中的配置表数据
-            List<TableProcess> tableProcessList = MySQLUtil.queryList("select * from table_process", TableProcess.class, true);
-            //遍历查询结果,将数据存入结果集合
-            for (TableProcess tableProcess : tableProcessList) {
-                //获取源表表名
-                String sourceTable = tableProcess.getSourceTable();
-                //获取数据操作类型
-                String operateType = tableProcess.getOperateType();
-                //获取结果表表名
-                String sinkTable = tableProcess.getSinkTable();
-                //获取sink类型
-                String sinkType = tableProcess.getSinkType();
-                //拼接字段创建主键
-                String key = sourceTable + ":" + operateType;
-                //将数据存入结果集合
-                tableProcessMap.put(key, tableProcess);
-                //如果是向Hbase中保存的表，那么判断在内存中维护的Set集合中是否存在
-                if ("insert".equals(operateType) && "hbase".equals(sinkType)) {
-                    boolean notExist = existsTables.add(sourceTable);
-                    //如果表信息数据不存在内存,则在Phoenix中创建新的表
-                    if (notExist) {
-                        checkTable(sinkTable, tableProcess.getSinkColumns(), tableProcess.getSinkPk(), tableProcess.getSinkExtend());
-                    }
+    //读取MySQL中配置表信息，存入到内存Map中
+    private void initTableProcessMap() {
+        System.out.println("更新配置的处理信息");
+        //查询MySQL中的配置表数据
+        List<TableProcess> tableProcessList = MySQLUtil.queryList("select * from table_process", TableProcess.class, true);
+        //遍历查询结果,将数据存入结果集合
+        for (TableProcess tableProcess : tableProcessList) {
+            //获取源表表名
+            String sourceTable = tableProcess.getSourceTable();
+            //获取数据操作类型
+            String operateType = tableProcess.getOperateType();
+            //获取结果表表名
+            String sinkTable = tableProcess.getSinkTable();
+            //获取sink类型
+            String sinkType = tableProcess.getSinkType();
+            //拼接字段创建主键
+            String key = sourceTable + ":" + operateType;
+            //将数据存入结果集合
+            tableProcessMap.put(key, tableProcess);
+            //如果是向Hbase中保存的表，那么判断在内存中维护的Set集合中是否存在
+            if ("insert".equals(operateType) && "hbase".equals(sinkType)) {
+                boolean notExist = existsTables.add(sourceTable);
+                //如果表信息数据不存在内存,则在Phoenix中创建新的表
+                if (notExist) {
+                    checkTable(sinkTable, tableProcess.getSinkColumns(), tableProcess.getSinkPk(), tableProcess.getSinkExtend());
                 }
             }
-            if (tableProcessMap==null || tableProcessMap.size() == 0) {
-                throw new RuntimeException("缺少处理信息");
-            }
-
-
-
-
         }
+        if (tableProcessMap == null || tableProcessMap.size() == 0) {
+            throw new RuntimeException("缺少处理信息");
+        }
+    }
 
     private void checkTable(String tableName, String fields, String pk, String ext) {
         //主键不存在,则给定默认值
