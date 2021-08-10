@@ -3,7 +3,6 @@ package com.alibaba.app.dwm;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.utils.MyKafkaUtil;
-import com.google.inject.internal.cglib.core.$LocalVariablesSorter;
 import org.apache.flink.api.common.functions.RichFilterFunction;
 import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.api.common.state.ValueState;
