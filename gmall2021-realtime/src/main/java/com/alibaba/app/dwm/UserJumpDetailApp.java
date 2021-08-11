@@ -73,7 +73,7 @@ public class UserJumpDetailApp {
         }));
         //TODO 3.根据日志数据的mid进行分组
         KeyedStream<JSONObject, String> jsonObjectStringKeyedStream = jsonObjWithEtDstream.keyBy(jsonObj ->
-                jsonObj.getJSONObject("common").getString("data"));
+                jsonObj.getJSONObject("common").getString("mid"));
 
         //TODO 4.配置CEP表达式
         Pattern<JSONObject, JSONObject> pattern = Pattern.<JSONObject>begin("GoIn").where(
@@ -108,7 +108,7 @@ public class UserJumpDetailApp {
 
         //TODO 6.提取命中的数据
 
-        OutputTag<String> timeoutTag = new OutputTag<>("timeout");
+        OutputTag<String> timeoutTag = new OutputTag<String>("timeout"){};
         SingleOutputStreamOperator<String> filteredStream = patternedStream.flatSelect(timeoutTag, new PatternFlatTimeoutFunction<JSONObject, String>() {
                     @Override
                     public void timeout(Map<String, List<JSONObject>> pattern, long timeoutTimestamp, Collector<String> out) throws Exception {
