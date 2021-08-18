@@ -30,7 +30,7 @@ import java.util.Map;
  * @date 2021/8/11 10:52
  * @Desc: 访客的跳出情况判断
  * 从dwd层 dwd_page_log中读取数据
- *
+ * <p>
  * 思路：
  * 3.1.2计算跳出行为的思路
  * 首先要识别哪些是跳出行为，要把这些跳出的访客最后一个访问的页面识别出来。那么要抓住几个特征：
@@ -108,7 +108,8 @@ public class UserJumpDetailApp {
 
         //TODO 6.提取命中的数据
 
-        OutputTag<String> timeoutTag = new OutputTag<String>("timeout"){};
+        OutputTag<String> timeoutTag = new OutputTag<String>("timeout") {
+        };
         SingleOutputStreamOperator<String> filteredStream = patternedStream.flatSelect(timeoutTag, new PatternFlatTimeoutFunction<JSONObject, String>() {
                     @Override
                     public void timeout(Map<String, List<JSONObject>> pattern, long timeoutTimestamp, Collector<String> out) throws Exception {
