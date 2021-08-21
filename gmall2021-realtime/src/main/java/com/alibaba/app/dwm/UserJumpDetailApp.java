@@ -18,6 +18,7 @@ import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.flink.streaming.runtime.operators.util.AssignerWithPeriodicWatermarksAdapter;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
 
@@ -62,6 +63,7 @@ public class UserJumpDetailApp {
 
 //        注意：flink1.12默认的时间语义就是事件时间，所以不需要执行
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+
 
 
         //TODO 2.指定事件时间字段
