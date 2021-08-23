@@ -1,3 +1,4 @@
+
 package com.alibaba.bean;
 
 import lombok.Data;
@@ -6,9 +7,8 @@ import java.math.BigDecimal;
 
 /**
  * @author fada.yu
- * @version 1.0
- * @date 2021/8/17 15:54
- * @Desc:
+ * @date 2021/8/21 15:28
+ * @Description：
  * 订单实体类
  */
 @Data
@@ -28,4 +28,5 @@ public class OrderInfo {
     String create_date; // 把其他字段处理得到
     String create_hour;
     Long create_ts;
+
 }

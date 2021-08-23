@@ -1,3 +1,4 @@
+
 package com.alibaba.app.dwm;
 
 import com.alibaba.fastjson.JSON;
@@ -18,6 +19,7 @@ import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.flink.streaming.runtime.operators.util.AssignerWithPeriodicWatermarksAdapter;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
 
@@ -30,7 +32,7 @@ import java.util.Map;
  * @date 2021/8/11 10:52
  * @Desc: 访客的跳出情况判断
  * 从dwd层 dwd_page_log中读取数据
- * <p>
+ *
  * 思路：
  * 3.1.2计算跳出行为的思路
  * 首先要识别哪些是跳出行为，要把这些跳出的访客最后一个访问的页面识别出来。那么要抓住几个特征：
@@ -62,6 +64,7 @@ public class UserJumpDetailApp {
 
 //        注意：flink1.12默认的时间语义就是事件时间，所以不需要执行
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+
 
 
         //TODO 2.指定事件时间字段
@@ -108,8 +111,7 @@ public class UserJumpDetailApp {
 
         //TODO 6.提取命中的数据
 
-        OutputTag<String> timeoutTag = new OutputTag<String>("timeout") {
-        };
+        OutputTag<String> timeoutTag = new OutputTag<String>("timeout"){};
         SingleOutputStreamOperator<String> filteredStream = patternedStream.flatSelect(timeoutTag, new PatternFlatTimeoutFunction<JSONObject, String>() {
                     @Override
                     public void timeout(Map<String, List<JSONObject>> pattern, long timeoutTimestamp, Collector<String> out) throws Exception {
