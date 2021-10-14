@@ -3,6 +3,7 @@ package com.alibaba.app.func;
 import com.alibaba.common.GmallConfig;
 
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.utils.DimUtil;
 import org.apache.commons.lang.StringUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
@@ -54,6 +55,13 @@ public class DimSink extends RichSinkFunction<JSONObject> {
                 throw new RuntimeException("执行sql失败！");
             }
         }
+
+        //如果维度数据发生变化，那么清空当前数据在Redis中的缓存
+        if(jsonObject.getString("type").equals("update")
+                ||jsonObject.getString("type").equals("delete")){
+            DimUtil.deleteCached(tableName,dataJsonObj.getString("id"));
+        }
+
     }
     public String genUpsertSql(String tableName, JSONObject jsonObject) {
         Set<String> fields = jsonObject.keySet();
