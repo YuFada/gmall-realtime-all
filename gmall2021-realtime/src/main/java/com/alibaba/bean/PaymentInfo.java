@@ -1,5 +1,6 @@
 package com.alibaba.bean;
 
+import com.alibaba.fastjson.JSONObject;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -20,4 +21,8 @@ public class PaymentInfo {
     String payment_type;
     String create_time;
     String callback_time;
+
+    public PaymentInfo(JSONObject parseObject) {
+
+    }
 }
