@@ -17,6 +17,8 @@ import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 import org.apache.flink.util.Collector;
+import com.alibaba.utils.ClickhouseUtil;
+
 
 import java.text.SimpleDateFormat;
 import java.time.Duration;
@@ -192,7 +194,10 @@ public class VisitorStatsApp {
                 }
             }
         });
-        visitorStatsDstream.print("reduce:");
+        //visitorStatsDstream.print("reduce:");
+        //TODO 8.向ClickHouse中写入数据
+        visitorStatsDstream.addSink(
+                ClickhouseUtil.getJdbcSink("insert into visitor_stats_2021 values(?,?,?,?,?,?,?,?,?,?,?,?)"));
 
         env.execute();
 
