@@ -1,5 +1,6 @@
 package com.alibaba.app.dws;
 
+import com.alibaba.app.func.DimAsyncFunction;
 import com.alibaba.bean.OrderWide;
 import com.alibaba.bean.PaymentWide;
 import com.alibaba.bean.ProductStats;
@@ -7,18 +8,31 @@ import com.alibaba.common.GmallConstant;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.utils.ClickhouseUtil;
 import com.alibaba.utils.DateTimeUtil;
 import com.alibaba.utils.MyKafkaUtil;
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.api.common.functions.ReduceFunction;
+import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.streaming.api.datastream.AsyncDataStream;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
+import org.apache.flink.streaming.api.functions.windowing.WindowFunction;
+import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
+import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 import org.apache.flink.util.Collector;
+import ru.yandex.clickhouse.ClickHouseUtil;
 
+import java.text.SimpleDateFormat;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author fada.yu
@@ -186,8 +200,152 @@ public class ProductStatsApp {
                 paymentStatsDstream, refundStatsDstream, favorStatsDstream,
                 commonInfoStatsDstream);
 
-        productStatDetailDStream.print("after union:");
+        //productStatDetailDStream.print("after union:");
+
+        // TODO: 2021/12/7  4.设定事件时间与水位线 
+        SingleOutputStreamOperator<ProductStats> productStatsWithTsStream = productStatDetailDStream.assignTimestampsAndWatermarks(
+                WatermarkStrategy.<ProductStats>forMonotonousTimestamps().withTimestampAssigner(
+                        (productStats, recordTimestamp) -> {
+                            return productStats.getTs();
+                        }
+                )
+        );
+
+        // TODO: 2021/12/7 5.分组、开窗、聚合
+
+        SingleOutputStreamOperator<ProductStats> productStatsDstream = productStatsWithTsStream
+                .keyBy(
+                        //5.1 按照商品id进行分组
+                        new KeySelector<ProductStats, Long>() {
+                            @Override
+                            public Long getKey(ProductStats productStats) throws Exception {
+                                return productStats.getSku_id();
+                            }
+                        }
+                        //5.2 开窗 窗口长度为10s
+                ).window(TumblingEventTimeWindows.of(Time.seconds(10)))
+                //5.3 对窗口中的数据进行聚合
+                .reduce(new ReduceFunction<ProductStats>() {
+                            @Override
+                            public ProductStats reduce(ProductStats stats1, ProductStats stats2) throws Exception {
+                                stats1.setDisplay_ct(stats1.getDisplay_ct() + stats2.getDisplay_ct());
+                                stats1.setClick_ct(stats1.getClick_ct() + stats2.getClick_ct());
+                                stats1.setCart_ct(stats1.getCart_ct() + stats2.getCart_ct());
+                                stats1.setFavor_ct(stats1.getFavor_ct() + stats2.getFavor_ct());
+                                stats1.setOrder_amount(stats1.getOrder_amount().add(stats2.getOrder_amount()));
+                                stats1.getOrderIdSet().addAll(stats2.getOrderIdSet());
+                                stats1.setOrder_ct(stats1.getOrderIdSet().size() + 0L);
+                                stats1.setOrder_sku_num(stats1.getOrder_sku_num() + stats2.getOrder_sku_num());
+                                stats1.setPayment_amount(stats1.getPayment_amount().add(stats2.getPayment_amount()));
+
+                                stats1.getRefundOrderIdSet().addAll(stats2.getRefundOrderIdSet());
+                                stats1.setRefund_order_ct(stats1.getRefundOrderIdSet().size() + 0L);
+                                stats1.setRefund_amount(stats1.getRefund_amount().add(stats2.getRefund_amount()));
+
+                                stats1.getPaidOrderIdSet().addAll(stats2.getPaidOrderIdSet());
+                                stats1.setPaid_order_ct(stats1.getPaidOrderIdSet().size() + 0L);
+
+                                stats1.setComment_ct(stats1.getComment_ct() + stats2.getComment_ct());
+                                stats1.setGood_comment_ct(stats1.getGood_comment_ct() + stats2.getGood_comment_ct());
+                                return stats1;
+                            }
+                        },
+                        new WindowFunction<ProductStats, ProductStats, Long, TimeWindow>() {
+                            @Override
+                            public void apply(Long aLong, TimeWindow timeWindow, Iterable<ProductStats> iterable, Collector<ProductStats> out) throws Exception {
+
+                                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                                for (ProductStats productStats : iterable) {
+                                    productStats.setStt(simpleDateFormat.format(timeWindow.getStart()));
+                                    productStats.setEdt(simpleDateFormat.format(timeWindow.getEnd()));
+                                    productStats.setTs(new Date().getTime());
+                                    out.collect(productStats);
+                                }
+                            }
+                        }
+                );
+        //productStatsDstream.print("productStatsDstream::");
+
+
+        //TODO 6.补充商品维度信息
+
+        SingleOutputStreamOperator<ProductStats> productStatsWithSkuDstream = AsyncDataStream.unorderedWait(productStatsWithTsStream,
+                new DimAsyncFunction<ProductStats>("DIM_SKU_INFO") {
+                    @Override
+                    public void join(ProductStats productStats, JSONObject jsonObject) throws Exception {
+                        productStats.setSku_name(jsonObject.getString("SKU_NAME"));
+                        productStats.setSku_price(jsonObject.getBigDecimal("PRICE"));
+                        productStats.setCategory3_id(jsonObject.getLong("CATEGORY3_ID"));
+                        productStats.setSpu_id(jsonObject.getLong("SPU_ID"));
+                        productStats.setTm_id(jsonObject.getLong("TM_ID"));
+                    }
+
+                    @Override
+                    public String getKey(ProductStats productStats) {
+
+                        return String.valueOf(productStats.getSku_id());
+                    }
+                }, 60, TimeUnit.SECONDS);
+
+
+        //6.2 补充SPU维度
+        SingleOutputStreamOperator<ProductStats> productStatsWithSpuDstream =
+                AsyncDataStream.unorderedWait(productStatsWithSkuDstream,
+                        new DimAsyncFunction<ProductStats>("DIM_SPU_INFO") {
+                            @Override
+                            public void join(ProductStats productStats, JSONObject jsonObject) throws Exception {
+                                productStats.setSpu_name(jsonObject.getString("SPU_NAME"));
+                            }
+
+                            @Override
+                            public String getKey(ProductStats productStats) {
+                                return String.valueOf(productStats.getSpu_id());
+                            }
+                        }, 60, TimeUnit.SECONDS);
+
+
+        //6.3 补充品类维度
+        SingleOutputStreamOperator<ProductStats> productStatsWithCategory3Dstream =
+                AsyncDataStream.unorderedWait(productStatsWithSpuDstream,
+                        new DimAsyncFunction<ProductStats>("DIM_BASE_CATEGORY3") {
+                            @Override
+                            public void join(ProductStats productStats, JSONObject jsonObject) throws Exception {
+                                productStats.setCategory3_name(jsonObject.getString("NAME"));
+                            }
+
+                            @Override
+                            public String getKey(ProductStats productStats) {
+                                return String.valueOf(productStats.getCategory3_id());
+                            }
+                        }, 60, TimeUnit.SECONDS);
+
+        //6.4 补充品牌维度
+        SingleOutputStreamOperator<ProductStats> productStatsWithTmDstream =
+                AsyncDataStream.unorderedWait(productStatsWithCategory3Dstream,
+                        new DimAsyncFunction<ProductStats>("DIM_BASE_TRADEMARK") {
+                            @Override
+                            public void join(ProductStats productStats, JSONObject jsonObject) throws Exception {
+                                productStats.setTm_name(jsonObject.getString("TM_NAME"));
+                            }
+
+                            @Override
+                            public String getKey(ProductStats productStats) {
+                                return String.valueOf(productStats.getTm_id());
+                            }
+                        }, 60, TimeUnit.SECONDS);
+
+        //productStatsWithTmDstream.print("to save");
+
+        //TODO 7.写入到ClickHouse
+        productStatsWithTmDstream.addSink(
+                ClickhouseUtil.<ProductStats>getJdbcSink(
+                        "insert into product_stats_2021 values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"));
+
+
+        env.execute("ProductStatsApp");
+
 
     }
+
 
 }
