@@ -1,6 +1,5 @@
 package com.alibaba.utils;
 
-import com.alibaba.common.GmallConfig;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
@@ -37,5 +36,17 @@ public class MyKafkaUtil {
         //如果15分钟没有更新状态，则超时 默认1分钟
         prop.setProperty(ProducerConfig.TRANSACTION_TIMEOUT_CONFIG,1000*60*15+"");
         return new FlinkKafkaProducer<>(DEFAULT_TOPIC, serializationSchema, prop, FlinkKafkaProducer.Semantic.EXACTLY_ONCE);
+    }
+
+
+    //拼接Kafka相关属性到DDL
+    public static String getKafkaDDL(String topic,String groupId){
+        String ddl="'connector' = 'kafka', " +
+                " 'topic' = '"+topic+"',"   +
+                " 'properties.bootstrap.servers' = '"+ kafkaServer +"', " +
+                " 'properties.group.id' = '"+groupId+ "', " +
+                "  'format' = 'json', " +
+                "  'scan.startup.mode' = 'latest-offset'  ";
+        return  ddl;
     }
 }

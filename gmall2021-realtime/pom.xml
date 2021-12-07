@@ -13,6 +13,12 @@
 
 <dependencies>
     <dependency>
+        <groupId>com.janeluo</groupId>
+        <artifactId>ikanalyzer</artifactId>
+        <version>2012_u6</version>
+    </dependency>
+
+    <dependency>
         <groupId>org.apache.phoenix</groupId>
         <artifactId>phoenix-spark</artifactId>
         <version>5.0.0-HBase-2.0</version>

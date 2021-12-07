@@ -8,6 +8,7 @@ import com.alibaba.common.GmallConstant;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.serializer.SerializeConfig;
 import com.alibaba.utils.ClickhouseUtil;
 import com.alibaba.utils.DateTimeUtil;
 import com.alibaba.utils.MyKafkaUtil;
@@ -340,6 +341,11 @@ public class ProductStatsApp {
         productStatsWithTmDstream.addSink(
                 ClickhouseUtil.<ProductStats>getJdbcSink(
                         "insert into product_stats_2021 values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"));
+
+        //TODO 9.写回到Kafka的dws层
+        productStatsWithTmDstream
+                .map(productStat->JSON.toJSONString(productStat,new SerializeConfig(true)))
+                .addSink(MyKafkaUtil.getKafkaSink("dws_product_stats"));
 
 
         env.execute("ProductStatsApp");
